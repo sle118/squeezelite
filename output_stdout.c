@@ -156,7 +156,7 @@ void output_init_stdout(log_level level, unsigned output_buf_size, char *params,
 
 	output_init_common(level, "-", output_buf_size, rates, 0);
 
-#if LINUX || OSX || FREEBSD
+#if LINUX || OSX || FREEBSD || SQESP
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
 #ifdef PTHREAD_STACK_MIN

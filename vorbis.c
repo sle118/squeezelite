@@ -20,7 +20,7 @@
  */
 
 #include "squeezelite.h"
-
+#ifndef DACAUDIO
 // automatically select between floating point (preferred) and fixed point libraries:
 // NOTE: works with Tremor version here: http://svn.xiph.org/trunk/Tremor, not vorbisidec.1.0.2 currently in ubuntu
 
@@ -334,3 +334,4 @@ struct codec *register_vorbis(void) {
 	LOG_INFO("using vorbis to decode ogg");
 	return &ret;
 }
+#endif

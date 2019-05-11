@@ -26,7 +26,11 @@
 
 #define MAJOR_VERSION "1.9"
 #define MINOR_VERSION "2"
-#define MICRO_VERSION "1145"
+#define MICRO_VERSION "1144"
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+
 
 #if defined(CUSTOM_VERSION)
 #define VERSION "v" MAJOR_VERSION "." MINOR_VERSION "-" MICRO_VERSION STR(CUSTOM_VERSION)
@@ -69,16 +73,26 @@
 #define LINUX     1
 #define PORTAUDIO 1
 #define PA18API   1
+#define DACAUDIO  0
 #define OSX       0
 #define WIN       0
+#elif defined (ARDUINO_LOLIN_D32)
+#define SUN       0
+#define LINUX     0
+#define PORTAUDIO 0
+#define PA18API   0
+#define DACAUDIO  1
+#define OSX       0
+#define WIN       0
+#define SQESP	  1
 #else
 #error unknown target
 #endif
-
-#if LINUX && !defined(PORTAUDIO)
+#pragma region //platform options
+#if LINUX && !defined(PORTAUDIO) && !DACAUDIO
 #define ALSA      1
 #define PORTAUDIO 0
-#else
+#elif !DACAUDIO
 #define ALSA      0
 #define PORTAUDIO 1
 #endif
@@ -87,6 +101,10 @@
 #define EVENTFD   0
 #define WINEVENT  0
 #define SELFPIPE  1
+#elif SQESP 
+#define EVENTFD   0
+#define WINEVENT  0
+#define SELFPIPE  1 // use IPC APIs from Espressif
 #elif LINUX && !defined(SELFPIPE)
 #define EVENTFD   1
 #define SELFPIPE  0
@@ -162,8 +180,8 @@
 #else
 #define USE_SSL 0
 #endif
-
-
+#pragma endregion
+#pragma region // LINKALL
 #if !LINKALL
 
 // dynamically loaded libraries at run time
@@ -221,7 +239,8 @@
 #endif
 
 #endif // !LINKALL
-
+#pragma endregion 
+#pragma region //Config Options
 // config options
 #define STREAMBUF_SIZE (2 * 1024 * 1024)
 #define OUTPUTBUF_SIZE (44100 * 8 * 10)
@@ -240,7 +259,8 @@
 #if SUN || OSXPPC
 #undef SL_LITTLE_ENDIAN
 #endif
-
+#pragma endregion
+#pragma region //All platforms includes
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -248,8 +268,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/types.h>
-
-#if LINUX || OSX || FREEBSD
+#pragma endregion
+#pragma region //platform specific LINUX/OSX/FREEBSD
+#if LINUX || OSX || FREEBSD 
 #include <unistd.h>
 #include <stdbool.h>
 #include <netinet/in.h>
@@ -264,6 +285,7 @@
 #include <sys/types.h>
 #endif /* SUN */
 
+
 #define STREAM_THREAD_STACK_SIZE  64 * 1024
 #define DECODE_THREAD_STACK_SIZE 128 * 1024
 #define OUTPUT_THREAD_STACK_SIZE  64 * 1024
@@ -274,13 +296,15 @@
 #define closesocket(s) close(s)
 #define last_error() errno
 #define ERROR_WOULDBLOCK EWOULDBLOCK
-
+#pragma message ("************* TYPES PROCESSING ************")
 #ifdef SUN
+#pragma message ("SUN TYPES")
 typedef uint8_t  u8_t;
 typedef uint16_t u16_t;
 typedef uint32_t u32_t;
 typedef uint64_t u64_t;
 #else
+#pragma message ("GENERIC Types")
 typedef u_int8_t  u8_t;
 typedef u_int16_t u16_t;
 typedef u_int32_t u32_t;
@@ -299,7 +323,10 @@ typedef int64_t   s64_t;
 #define thread_type pthread_t
 
 #endif
+#pragma endregion
 
+
+#pragma region // Platform specific : Windows
 #if WIN
 
 #include <winsock2.h>
@@ -347,6 +374,54 @@ typedef BOOL bool;
 #define RTLD_NOW 0
 
 #endif
+#pragma endregion
+#pragma region //Espressif ESP32
+#if SQESP
+#include <unistd.h>
+#include <stdbool.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/socket.h>
+#include <sys/poll.h>
+#include <pthread.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <include/pthread.h>
+#include <sqesp.h>
+
+// todo:  validate these parameters!
+// #define STREAM_THREAD_STACK_SIZE  64 * 1024
+// #define DECODE_THREAD_STACK_SIZE 128 * 1024
+// #define OUTPUT_THREAD_STACK_SIZE  64 * 1024
+// #define IR_THREAD_STACK_SIZE      64 * 1024
+
+#define thread_t pthread_t;
+#define closesocket(s) close(s)
+#define last_error() errno
+#define ERROR_WOULDBLOCK EWOULDBLOCK
+typedef uint8_t  u8_t;
+typedef uint16_t u16_t;
+// typedef u_int32_t u32_t;
+typedef uint64_t u64_t;
+
+typedef int16_t   s16_t;
+typedef int32_t   s32_t;
+typedef int64_t   s64_t;
+
+
+#define mutex_type pthread_mutex_t
+#define mutex_create(m) pthread_mutex_init(&m, NULL)
+#define mutex_create_p mutex_create
+//#define mutex_create_p(m) pthread_mutexattr_t attr; pthread_mutexattr_init(&attr); pthread_mutexattr_setprotocol(&attr, PTHREAD_INHERIT_SCHED); pthread_mutex_init(&m, &attr); pthread_mutexattr_destroy(&attr)
+#define mutex_lock(m) pthread_mutex_lock(&m)
+#define mutex_unlock(m) pthread_mutex_unlock(&m)
+#define mutex_destroy(m) pthread_mutex_destroy(&m)
+#define thread_type pthread_t
+
+#endif
+#pragma endregion
+
 
 #if !defined(MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
@@ -365,7 +440,8 @@ typedef int sockfd;
 #define wake_close(e) close(e)
 #endif
 
-#if SELFPIPE
+#if SELFPIPE 
+#ifndef SQESP
 #define event_handle struct pollfd
 #define event_event struct wake
 #define wake_create(e) pipe(e.fds); set_nonblock(e.fds[0]); set_nonblock(e.fds[1])
@@ -375,6 +451,28 @@ typedef int sockfd;
 struct wake { 
 	int fds[2];
 };
+#else
+#pragma message "TODO: complete IPC support"
+// struct pollfd {
+//     int fd;        /* The descriptor. */
+//     short events;  /* The event(s) is/are specified here. */
+//     short revents; /* Events found are returned here. */
+// };
+
+#define PIPE_PATH "$pipe$"
+#define WAKE_PATH PIPE_PATH"wake"
+#define event_handle struct pollfd
+#define event_event struct wake
+//event_event wake_e;
+#define wake_create(e)  // esp_vfs_dev_event_register(); e.fds[1] = event_open(WAKE_PATH,O_NONBLOCK);
+#define wake_signal(e)// write(e.fds[1], ".", 1)
+#define wake_clear(e) //char c[10]; read(e, &c, 10)
+#define wake_close(e) //close(e.fds[0]); close(e.fds[1])
+struct wake { 
+	int fds[2];
+};
+#endif
+
 #endif
 
 #if WINEVENT
@@ -666,8 +764,18 @@ bool test_open(const char *device, unsigned rates[], bool userdef_rates);
 void output_init_pa(log_level level, const char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay, unsigned idle);
 void output_close_pa(void);
 void _pa_open(void);
-#endif
 
+#endif
+#if DACAUDIO
+// ESP will use stream to stdout
+void output_close_dac(void);
+void list_devices(void);
+void set_volume(unsigned left, unsigned right);
+void output_init_dac(log_level level, const char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay,
+					unsigned idle);
+bool test_open(const char *device, unsigned rates[], bool userdef_rates);
+void dac_open(void);
+#endif
 // output_stdout.c
 void output_init_stdout(log_level level, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay);
 void output_close_stdout(void);
@@ -709,7 +817,9 @@ struct codec *register_vorbis(void);
 struct codec *register_faad(void);
 struct codec *register_dsd(void);
 struct codec *register_ff(const char *codec);
-
+#ifdef DACAUDIO
+struct codec *register_dac(const char *codec);
+#endif
 //gpio.c
 #if GPIO
 void relay( int state);

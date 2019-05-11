@@ -1,0 +1,33 @@
+ Le volume dans le lecteur C s'appelle OS
+ Le num‚ro de s‚rie du volume est 8088-8F38
+
+ R‚pertoire de C:\Users\Sebastien\Documents\PlatformIO\Projects\ESP32Squeezelite\src
+
+2019-05-07  09:03             3ÿ122 buffer.c
+2019-05-07  09:03             2ÿ991 daemonize.c
+2019-05-07  09:03             7ÿ790 decode.c
+2019-05-07  09:03             2ÿ367 dop.c
+2019-05-07  09:03            24ÿ271 dsd.c
+2019-05-07  09:03            16ÿ635 faad.c
+2019-05-07  09:03            23ÿ834 ffmpeg.c
+2019-05-07  09:03             8ÿ739 flac.c
+2019-05-07  09:03             2ÿ669 gpio.c
+2019-05-07  09:03             6ÿ163 ir.c
+2019-05-07  09:03            11ÿ447 mad.c
+2019-05-07  09:03            22ÿ137 main.c
+2019-05-07  09:03             7ÿ130 mpg.c
+2019-05-07  09:03            14ÿ692 output.c
+2019-05-07  09:03            29ÿ626 output_alsa.c
+2019-05-07  09:03            16ÿ929 output_pa.c
+2019-05-07  09:03            11ÿ442 output_pack.c
+2019-05-07  09:03             4ÿ250 output_stdout.c
+2019-05-07  09:03             4ÿ805 output_vis.c
+2019-05-07  09:03            11ÿ767 pcm.c
+2019-05-07  09:03             5ÿ007 process.c
+2019-05-07  09:03            10ÿ193 resample.c
+2019-05-07  09:03            26ÿ826 slimproto.c
+2019-05-07  09:03            13ÿ342 stream.c
+2019-05-07  09:03            11ÿ450 utils.c
+2019-05-07  09:03             8ÿ682 vorbis.c
+              26 fichier(s)          308ÿ306 octets
+               0 R‚p(s)  285ÿ605ÿ269ÿ504 octets libres

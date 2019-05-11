@@ -21,7 +21,7 @@
 
 #include "squeezelite.h"
 
-#if FFMPEG
+#if FFMPEG && !DACAUDIO
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>

@@ -461,7 +461,75 @@ static void process_setd(u8_t *pkt, int len) {
 		}
 	}
 }
+#ifdef SQESP
 
+static void process_grfe(u8_t *pkt, int len) {
+
+
+
+// grfe (length 1288 - GRFE+1284 bytes)
+// Display data. Currently undocumented. The best guess is that this is a bitmap of the 320x32 display (320x32 =10240. divide by 8 (bits in a byte) = 1280) but this has not been tested by myself (nhorlock).
+
+
+
+
+
+
+// 	Sends a bitmap to the client for display. It starts with a header of 4 bytes, followed by 1280 bytes of data. The header is:
+
+// $offset        2 bytes short int
+// $transition    1 byte ('L','R','U' or 'D')
+// $param         1 byte
+// On Squeezebox3, the data is 1280 bytes; each one is a bitfield (0=off 1=on for that bit). Bits are layed out from top to bottom in column 1 of the display, then top to bottom in column 2, etc. The Squeezebox3 has a 320x32 display, so each column is 4 bytes.
+
+// if $transition is a capital, the frame is bounced a few pixels, a lowercase value results in a full scroll. the parameter determines how many pixels are part of the animation (from bottom to top). More information on the transition can be found in pushBumpAnimate() of slim\display\Squeezebox2.pm in the squeezecenter source code.
+
+// For instance, the 4-byte sequence (in binary):
+
+// 1000 0000 
+// 0000 0000 
+// 0000 0000 
+// 0000 0011
+// would light up the top pixel and the two bottom pixels on the row; send a grfe with that sequence 320 times and you get a thin line across the top of the display and a thicker line across the bottom.
+
+// It is also possible to send compressed graphics. the highest byte of 'g' in the 'grfe' command should be set. The frame is then assumed to be compressed using LZF. The length in the header is the length of the compressed data (+4 for the command code).
+	// struct serv_packet *serv = (struct serv_packet *)pkt;
+
+	// unsigned slimproto_port = 0;
+	// char squeezeserver[] = SQUEEZENETWORK;
+	
+	// if(pkt[4] == 0 && pkt[5] == 0 && pkt[6] == 0 && pkt[7] == 1) {
+	// 	server_addr(squeezeserver, &new_server, &slimproto_port);
+	// } else {
+	// 	new_server = serv->server_ip;
+	// }
+
+	// LOG_INFO("switch server");
+
+	// if (len - sizeof(struct serv_packet) == 10) {
+	// 	if (!new_server_cap) {
+	// 		new_server_cap = malloc(SYNC_CAP_LEN + 10 + 1);
+	// 	}
+	// 	new_server_cap[0] = '\0';
+	// 	strcat(new_server_cap, SYNC_CAP);
+	// 	strncat(new_server_cap, (const char *)(pkt + sizeof(struct serv_packet)), 10);
+	// } else {
+	// 	if (new_server_cap) {
+	// 		free(new_server_cap);
+	// 		new_server_cap = NULL;
+	// 	}
+	// }		
+}
+
+
+
+static void process_vfcd(u8_t *pkt, int len) {
+// Command: "vfdc"
+// Sends VFD data to the client.
+
+// The data is the vfd data to send in the same format as for the SLIMP3 protocol.
+}
+#endif
 #define SYNC_CAP ",SyncgroupID="
 #define SYNC_CAP_LEN 13
 
@@ -507,6 +575,10 @@ static struct handler handlers[] = {
 	{ "audg", process_audg },
 	{ "setd", process_setd },
 	{ "serv", process_serv },
+	#ifdef SQESP
+	{"grfe", process_grfe},
+	{"vfcd", process_vfcd},
+	#endif
 	{ "",     NULL  },
 };
 

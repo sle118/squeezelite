@@ -17,7 +17,7 @@
  */
 
 #include "squeezelite.h"
-
+#ifndef SQESP
 #include <syslog.h>
 #include <sys/stat.h>
 
@@ -108,3 +108,4 @@ int daemon( int nochdir, int noclose ) {
 
 	return 0;
 }
+#endif

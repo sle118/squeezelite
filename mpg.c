@@ -20,7 +20,7 @@
  */
 
 #include "squeezelite.h"
-
+#ifndef DACAUDIO
 #include <mpg123.h>
 
 #define READ_SIZE  512
@@ -275,3 +275,4 @@ struct codec *register_mpg(void) {
 	LOG_INFO("using mpg to decode mp3");
 	return &ret;
 }
+#endif

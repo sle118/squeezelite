@@ -155,6 +155,7 @@ void decode_init(log_level level, const char *include_codecs, const char *exclud
 	// register codecs
 	// dsf,dff,alc,wma,wmap,wmal,aac,spt,ogg,ogf,flc,aif,pcm,mp3
 	i = 0;
+	#ifndef DACAUDIO
 #if DSD
 	if (!strstr(exclude_codecs, "dsd")	&& (!include_codecs || (order_codecs = strstr(include_codecs, "dsd"))))
 		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dsd());
@@ -183,12 +184,30 @@ void decode_init(log_level level, const char *include_codecs, const char *exclud
 	else if (!(strstr(exclude_codecs, "mp3") || strstr(exclude_codecs, "mpg")) &&
 		(!include_codecs || (order_codecs = strstr(include_codecs, "mp3")) || (order_codecs = strstr(include_codecs, "mpg"))))
 		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_mpg());
+#else
+if (!strstr(exclude_codecs, "alac") && (!include_codecs || (order_codecs = strstr(include_codecs, "alac"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("alc"));
+	if (!strstr(exclude_codecs, "wma")	&& (!include_codecs || (order_codecs = strstr(include_codecs, "wma"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("wma"));
 
+	if (!strstr(exclude_codecs, "aac")	&& (!include_codecs || (order_codecs = strstr(include_codecs, "aac"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("aac"));
+
+	if (!strstr(exclude_codecs, "ogg")	&& (!include_codecs || (order_codecs = strstr(include_codecs, "ogg"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("ogg"));
+	if (!strstr(exclude_codecs, "flac") && (!include_codecs || (order_codecs = strstr(include_codecs, "flac"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("flac"));
+	if (!strstr(exclude_codecs, "pcm")	&& (!include_codecs || (order_codecs = strstr(include_codecs, "pcm"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("pcm"));
+	if (!(strstr(exclude_codecs, "mp3") || strstr(exclude_codecs, "mpg")) &&
+		(!include_codecs || (order_codecs = strstr(include_codecs, "mp3")) || (order_codecs = strstr(include_codecs, "mpg"))))
+		sort_codecs((include_codecs ? order_codecs - include_codecs : i), register_dac("mp3"));
+#endif
 	LOG_DEBUG("include codecs: %s exclude codecs: %s", include_codecs ? include_codecs : "", exclude_codecs);
 
 	mutex_create(decode.mutex);
 
-#if LINUX || OSX || FREEBSD
+#if LINUX || OSX || FREEBSD || SQESP
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
 #ifdef PTHREAD_STACK_MIN
