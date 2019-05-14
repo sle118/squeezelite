@@ -42,31 +42,6 @@ extern u8_t *silencebuf;
 extern u8_t *silencebuf_dsd;
 #endif
 
-void list_devices(void) {
-  //todo: get the DAC details and output to log
-
-// 	if ((err = Pa_Initialize()) != paNoError) {
-// 		LOG_WARN("error initialising port audio: %s", Pa_GetErrorText(err));
-// 		return;
-// 	}
-	
-// 	printf("Output devices:\n");
-// #ifndef PA18API
-// 	for (i = 0; i < Pa_GetDeviceCount(); ++i) {
-// 		if (Pa_GetDeviceInfo(i)->maxOutputChannels) {
-// 			printf("  %i - %s [%s]\n", i, Pa_GetDeviceInfo(i)->name, Pa_GetHostApiInfo(Pa_GetDeviceInfo(i)->hostApi)->name);
-// 		}
-// #else
-// 	for (i = 0; i < Pa_CountDevices(); ++i) {
-// 		printf("  %i - %s\n", i, Pa_GetDeviceInfo(i)->name);
-// #endif
-// 	}
-// 	printf("\n");
-	
-// 	if ((err = Pa_Terminate()) != paNoError) {
-// 		LOG_WARN("error closing port audio: %s", Pa_GetErrorText(err));
-// 	}
-}
 
 void set_volume(unsigned left, unsigned right) {
 	LOG_DEBUG("setting internal gain left: %u right: %u", left, right);
@@ -77,7 +52,7 @@ void set_volume(unsigned left, unsigned right) {
 	UNLOCK;
 }
 
-static int dac_device_id(const char *device) {
+static int dsp_device_id(const char *device) {
 	int len = strlen(device);
 	int i;
 
@@ -116,7 +91,7 @@ bool test_open(const char *device, unsigned rates[], bool userdef_rates) {
 // 	const PaHostApiInfo *paHostApiInfo;
 
 // #endif
-// 	if ((device_id = dac_device_id(device)) == -1) {
+// 	if ((device_id = dsp_device_id(device)) == -1) {
 // 		LOG_INFO("device %s not found", device);
 // 		return false;
 // 	}
@@ -161,7 +136,7 @@ bool test_open(const char *device, unsigned rates[], bool userdef_rates) {
 	return true;
 }
 
-static void pa_stream_finished(void *userdata) {
+static void dsp_stream_finished(void *userdata) {
 	// if (running) {
 	// 	LOG_INFO("stream finished");
 	// 	LOCK;
@@ -203,7 +178,7 @@ static void *dac_monitor() {
 	// 		Pa_Terminate();
 	// 		Pa_Initialize();
 	// 		pa.stream = NULL;
-	// 		if (dac_device_id(output.device) != -1) {
+	// 		if (dsp_device_id(output.device) != -1) {
 	// 			LOG_INFO("device reopen");
 	// 			break;
 	// 		}
@@ -218,14 +193,14 @@ static void *dac_monitor() {
 
 	// monitor_thread_running = false;
 	// pa.stream = NULL;
-	//dac_open();
+	//output_dsp_open();
 
 	UNLOCK;
 
 	return 0;
 }
 
-void dac_open(void) {
+void output_dsp_open(void) {
 	bool err=false;
 // 	PaStreamParameters outputParameters;
 // 	PaError err = paNoError;
@@ -247,7 +222,7 @@ void dac_open(void) {
 // 		// set err to avoid opening device and logging messages
 // 		err = 1;
 
-// 	} else if ((device_id = dac_device_id(output.device)) == -1) {
+// 	} else if ((device_id = dsp_device_id(output.device)) == -1) {
 // 		LOG_INFO("device %s not found", output.device);
 // 		err = 1;
 
@@ -400,7 +375,7 @@ static int dac_callback(){
 
 // #ifdef PA18API
 // 	if ( ret == paComplete )
-// 		pa_stream_finished (userData);
+// 		dsp_stream_finished (userData);
 // #endif
 	return ret;
 }
@@ -419,11 +394,11 @@ void output_init_dsp(log_level level, const char *device, unsigned output_buf_si
 	// if (c) pa_nbufs = atoi(c);
 
 
-	// loglevel = level;
+	loglevel = level;
 
-	// LOG_INFO("init output");
+	LOG_INFO("init output");
 
-	// memset(&output, 0, sizeof(output));
+	memset(&output, 0, sizeof(output));
 
 
 	// if ( pa_frames != 0 )
@@ -446,20 +421,20 @@ void output_init_dsp(log_level level, const char *device, unsigned output_buf_si
 	output_init_common(level, device, output_buf_size, rates, idle);
 
 	LOCK;
-
-	dac_open();
+	// now init the dsp hardware
+	//output_dsp_open();
 	UNLOCK;
 }
 
 void output_close_dsp(void) {
 	// PaError err;
 
-	// LOG_INFO("close output");
+	LOG_INFO("close output");
 
-	// LOCK;
+	LOCK;
 
-	// running = false;
-	// monitor_thread_running = false;
+	running = false;
+	monitor_thread_running = false;
 
 	// if (pa.stream) {
 	// 	if ((err = Pa_AbortStream(pa.stream)) != paNoError) {
@@ -467,13 +442,11 @@ void output_close_dsp(void) {
 	// 	}
 	// }
 
-	// if ((err = Pa_Terminate()) != paNoError) {
-	// 	LOG_WARN("error closing port audio: %s", Pa_GetErrorText(err));
-	// }
+	//hal_dsp_close();
 
-	// UNLOCK;
+	UNLOCK;
 
 	output_close_common();
 }
 
-#endif // PORTAUDIO
+#endif // DSPAUDIO

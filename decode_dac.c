@@ -163,7 +163,7 @@ static decode_state dac_decode(void) {
 	return DECODE_RUNNING;
 }
 
-static void dac_open_stream(u8_t size, u8_t rate, u8_t chan, u8_t endianness) {
+static void dsp_open_stream(u8_t size, u8_t rate, u8_t chan, u8_t endianness) {
 	// sample_size = size - '0' + 1;
 	// sample_rate = sample_rates[rate - '0'];
 	// channels    = chan - '0';
@@ -186,7 +186,7 @@ struct codec *register_dsp(const char *codec) {
 			"aif,pcm", // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
@@ -201,7 +201,7 @@ struct codec *register_dsp(const char *codec) {
 			"wma,wmap,wmal", // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
@@ -217,7 +217,7 @@ struct codec *register_dsp(const char *codec) {
 			"alc",       // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
@@ -232,7 +232,7 @@ struct codec *register_dsp(const char *codec) {
 		"aac",        // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
@@ -247,7 +247,7 @@ struct codec *register_dsp(const char *codec) {
 		"ogg",        // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
@@ -263,7 +263,7 @@ struct codec *register_dsp(const char *codec) {
 		"flc",        // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
@@ -279,7 +279,7 @@ struct codec *register_dsp(const char *codec) {
 		"mp3",        // types
 			READ_SIZE,        // min read
 			WRITE_SIZE,      // min space
-			dac_open_stream,    // open
+			dsp_open_stream,    // open
 			dac_close,   // close
 			dac_decode,  // decode
 		};
