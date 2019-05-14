@@ -19,7 +19,7 @@
  */
 
 #include "squeezelite.h"
-#ifndef DACAUDIO
+#ifndef DSPAUDIO
 #include <FLAC/stream_decoder.h>
 
 struct flac {

@@ -1,5 +1,218 @@
-#include "squeezelite.h"
 
+
+/* 
+ *  Squeezelite - lightweight headless squeezebox emulator
+ *
+ *  (c) Adrian Smith 2012-2015, triode1@btinternet.com
+ *      Ralph Irving 2015-2017, ralph_irving@hotmail.com
+ *  
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Additions (c) Paul Hermann, 2015-2017 under the same license terms
+ *   -Control of Raspberry pi GPIO for amplifier power
+ *   -Launch script on power status change from LMS
+ */
+
+#include "squeezelite.h"
+#pragma message "find a better way to identify an ESP board here"
+
+#define LOG_LEVEL_VERBOSITY ("debug")
+#define LOG_LEVEL_SELECTION ("all")
+#define MODEL_NAME ("squeezelite_esp32")
+
+
+#define TITLE "Squeezelite " VERSION ", Copyright 2012-2015 Adrian Smith, 2015-2019 Ralph Irving."
+
+#define CODECS_BASE "flac,pcm,mp3,ogg"
+#if NO_FAAD
+#define CODECS_AAC  ""
+#else
+#define CODECS_AAC  ",aac"
+#endif
+#if DSD
+#define CODECS_DSD  ",dsd"
+#else
+#define CODECS_DSD  ""
+#endif
+#define CODECS_MP3  " (mad,mpg for specific mp3 codec)"
+
+#define CODECS CODECS_BASE CODECS_AAC CODECS_FF CODECS_DSD CODECS_MP3
+
+#pragma region Support_Functions
+
+
+void get_mac(u8_t mac[])
+{
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+}
+
+#pragma endregion
+
+static void license(void) {
+	printf(TITLE "\n\n"
+		   "This program is free software: you can redistribute it and/or modify\n"
+		   "it under the terms of the GNU General Public License as published by\n"
+		   "the Free Software Foundation, either version 3 of the License, or\n"
+		   "(at your option) any later version.\n\n"
+		   "This program is distributed in the hope that it will be useful,\n"
+		   "but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+		   "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+		   "GNU General Public License for more details.\n\n"
+		   "You should have received a copy of the GNU General Public License\n"
+		   "along with this program.  If not, see <http://www.gnu.org/licenses/>.\n"
+#if DSD		   
+		   "\nContains dsd2pcm library Copyright 2009, 2011 Sebastian Gesemann which\n"
+		   "is subject to its own license.\n"
+		   "\nContains the Daphile Project full dsd patch Copyright 2013-2017 Daphile,\n"
+		   "which is subject to its own license.\n"
+#endif
+		   "\nOption to allow server side upsampling for PCM streams (-W) from\n"
+		   "squeezelite-R2 (c) Marco Curti 2015, marcoc1712@gmail.com.\n"
+#if GPIO
+		   "\nAdditions (c) Paul Hermann, 2015, 2017 under the same license terms\n"
+		   "- Launch a script on power status change\n"
+		   "- Control of Raspberry pi GPIO for amplifier power\n"
+#endif
+		   "\n"
+		   );
+}
+static void sighandler(int signum) {
+	slimproto_stop();
+	// remove ourselves in case above does not work, second SIGINT will cause non gracefull shutdown
+	signal(signum, SIG_DFL);
+}
+
+
+
+void app_main() {
+	char *server = NULL;
+	char *output_device = "default";
+	char *include_codecs = NULL;
+	char *exclude_codecs = "";
+	char *name = NULL;
+	char *namefile = NULL;
+	char *modelname = NULL;
+	extern bool pcm_check_header;
+	extern bool user_rates;
+	char *logfile = NULL;
+	u8_t mac[6];
+	unsigned stream_buf_size = STREAMBUF_SIZE;
+	unsigned output_buf_size = 0; // set later
+	unsigned rates[MAX_SUPPORTED_SAMPLERATES] = { 0 };
+	unsigned rate_delay = 0;
+	char *resample = NULL;
+	char *output_params = NULL;
+	unsigned idle = 0;
+#if DSD
+	unsigned dsd_delay = 0;
+	dsd_format dsd_outfmt = PCM;
+#endif
+	
+	log_level log_output = lWARN;
+	log_level log_stream = lWARN;
+	log_level log_decode = lWARN;
+	log_level log_slimproto = lWARN;
+	int maxSampleRate = 0;
+
+	char *optarg = NULL;
+	int optind = 1;
+	int i;
+
+	get_mac(mac);
+
+	// output_params = optarg;
+      log_level new = lWARN;
+        
+      if (!strcmp(LOG_LEVEL_VERBOSITY, "info"))   new = lINFO;
+      if (!strcmp(LOG_LEVEL_VERBOSITY, "debug"))  new = lDEBUG;
+      if (!strcmp(LOG_LEVEL_VERBOSITY, "sdebug")) new = lSDEBUG;
+      if (!strcmp(LOG_LEVEL_SELECTION, "all") || !strcmp(LOG_LEVEL_SELECTION, "slimproto")) log_slimproto = new;
+      if (!strcmp(LOG_LEVEL_SELECTION, "all") || !strcmp(LOG_LEVEL_SELECTION, "stream"))    log_stream = new;
+      if (!strcmp(LOG_LEVEL_SELECTION, "all") || !strcmp(LOG_LEVEL_SELECTION, "decode"))    log_decode = new;
+      if (!strcmp(LOG_LEVEL_SELECTION, "all") || !strcmp(LOG_LEVEL_SELECTION, "output"))    log_output = new;
+			
+      // todo:  fill in supported rates (get them from the DAC's hal?)
+			
+      // todo:  fill server.  Should this be provisioned via the android app?
+      //server = optarg;
+
+      // todo: fill player name if required.  Perhaps we could use a generic name if the server 
+      // eventually sends back the name that was setup in the LMS config page?
+			//name = optarg;
+      // Alternatively, we could store the name in a file and reload it at boot time
+      // namefile = optarg;
+
+      // todo:  if the DSP is missing details from the stream for playback, then we might need to 
+      // implement a header enrichment function that gets invoked on new stream playback
+			//pcm_check_header = true;
+			
+#if DSD
+  // todo:  see if our DAC supports DSD natively
+			// dsd_outfmt = DOP;
+			// if (optind < argc && argv[optind] && argv[optind][0] != '-') {
+			// 	char *dstr = next_param(argv[optind++], ':');
+			// 	char *fstr = next_param(NULL, ':');
+			// 	dsd_delay = dstr ? atoi(dstr) : 0;
+			// 	if (fstr) {
+			// 		if (!strcmp(fstr, "dop")) dsd_outfmt = DOP; 
+			// 		if (!strcmp(fstr, "u8")) dsd_outfmt = DSD_U8; 
+			// 		if (!strcmp(fstr, "u16le")) dsd_outfmt = DSD_U16_LE; 
+			// 		if (!strcmp(fstr, "u32le")) dsd_outfmt = DSD_U32_LE; 
+			// 		if (!strcmp(fstr, "u16be")) dsd_outfmt = DSD_U16_BE; 
+			// 		if (!strcmp(fstr, "u32be")) dsd_outfmt = DSD_U32_BE;
+			// 		if (!strcmp(fstr, "dop24")) dsd_outfmt = DOP_S24_LE;
+			// 		if (!strcmp(fstr, "dop24_3")) dsd_outfmt = DOP_S24_3LE;
+			// 	}
+			// }
+
+#endif
+
+//todo:  see if we want to implement signaling
+// 	signal(SIGINT, sighandler);
+// 	signal(SIGTERM, sighandler);
+// #if defined(SIGQUIT)
+// 	signal(SIGQUIT, sighandler);
+// #endif
+// #if defined(SIGHUP)
+// 	signal(SIGHUP, sighandler);
+// #endif
+
+
+	// set the output buffer size 
+		output_buf_size = OUTPUTBUF_SIZE;
+
+	stream_init(log_stream, stream_buf_size);
+
+#ifdef DSPAUDIO
+		output_init_dsp(log_output, output_device, output_buf_size, output_params, rates, rate_delay, idle);
+#else 
+#error "Usupported output for the ESP platform"
+#endif
+	
+
+#if DSD
+	dsd_init(dsd_outfmt, dsd_delay);
+#endif
+
+	decode_init(log_decode, include_codecs, exclude_codecs);
+	slimproto(log_slimproto, server, mac, name, namefile, modelname, maxSampleRate);
+
+	decode_close();
+	stream_close();
+	output_close_dsp();
+	exit(0);
+}
 
 void init_dac()
 {
@@ -1197,3 +1410,4 @@ int VSTestHandleFile(const char *fileName, int record) {
   return 0;
 }
 #endif
+

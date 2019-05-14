@@ -461,7 +461,7 @@ static void process_setd(u8_t *pkt, int len) {
 		}
 	}
 }
-#ifdef SQESP
+#ifdef POSIX
 
 static void process_grfe(u8_t *pkt, int len) {
 
@@ -575,7 +575,7 @@ static struct handler handlers[] = {
 	{ "audg", process_audg },
 	{ "setd", process_setd },
 	{ "serv", process_serv },
-	#ifdef SQESP
+	#ifdef POSIX
 	{"grfe", process_grfe},
 	{"vfcd", process_vfcd},
 	#endif

@@ -17,7 +17,7 @@
  */
 
 #include "squeezelite.h"
-#ifndef SQESP
+#ifndef POSIX
 #include <syslog.h>
 #include <sys/stat.h>
 

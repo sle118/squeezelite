@@ -20,7 +20,7 @@
  */
 
 #include "squeezelite.h"
-#ifndef DACAUDIO
+#ifndef DSPAUDIO
 // automatically select between floating point (preferred) and fixed point libraries:
 // NOTE: works with Tremor version here: http://svn.xiph.org/trunk/Tremor, not vorbisidec.1.0.2 currently in ubuntu
 

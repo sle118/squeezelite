@@ -73,52 +73,58 @@
 #define LINUX     1
 #define PORTAUDIO 1
 #define PA18API   1
-#define DACAUDIO  0
+#define DSPAUDIO  0
 #define OSX       0
 #define WIN       0
-#elif defined (ARDUINO_LOLIN_D32)
+#else
 #define SUN       0
 #define LINUX     0
 #define PORTAUDIO 0
 #define PA18API   0
-#define DACAUDIO  1
+#define DSPAUDIO  1
+#define POSIX     1
 #define OSX       0
 #define WIN       0
-#define SQESP	  1
-#else
-#error unknown target
+#define LOOPBACK  1 
 #endif
 #pragma region //platform options
-#if LINUX && !defined(PORTAUDIO) && !DACAUDIO
+#if LINUX && !defined(PORTAUDIO) && !DSPAUDIO
 #define ALSA      1
 #define PORTAUDIO 0
-#elif !DACAUDIO
+#elif !DSPAUDIO
 #define ALSA      0
 #define PORTAUDIO 1
 #endif
 
+#if !defined(LOOPBACK)
 #if SUN
 #define EVENTFD   0
 #define WINEVENT  0
 #define SELFPIPE  1
-#elif SQESP 
-#define EVENTFD   0
-#define WINEVENT  0
-#define SELFPIPE  1 // use IPC APIs from Espressif
 #elif LINUX && !defined(SELFPIPE)
 #define EVENTFD   1
 #define SELFPIPE  0
 #define WINEVENT  0
+#define LOOPBACK  0
 #endif
 #if (LINUX && !EVENTFD) || OSX || FREEBSD
 #define EVENTFD   0
 #define SELFPIPE  1
 #define WINEVENT  0
+#define LOOPBACK  0
 #endif
 #if WIN
 #define EVENTFD   0
 #define SELFPIPE  0
 #define WINEVENT  1
+#define LOOPBACK  0
+#endif
+#else
+#define EVENTFD   0
+#define SELFPIPE  0
+#define WINEVENT  0
+#undef LOOPBACK
+#define LOOPBACK  1
 #endif
 
 #if defined(RESAMPLE) || defined(RESAMPLE_MP)
@@ -375,20 +381,24 @@ typedef BOOL bool;
 
 #endif
 #pragma endregion
-#pragma region //Espressif ESP32
-#if SQESP
+#pragma region //POSIX
+#if POSIX
+
 #include <unistd.h>
 #include <stdbool.h>
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <sys/socket.h>
-#include <sys/poll.h>
+
+#pragma message "Temporary fix until next release of ESP-IDF"
+#include <esp-idf-fix/poll.h>
+
 #include <pthread.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <include/pthread.h>
-#include <sqesp.h>
 
 // todo:  validate these parameters!
 // #define STREAM_THREAD_STACK_SIZE  64 * 1024
@@ -440,8 +450,10 @@ typedef int sockfd;
 #define wake_close(e) close(e)
 #endif
 
+
+
 #if SELFPIPE 
-#ifndef SQESP
+
 #define event_handle struct pollfd
 #define event_event struct wake
 #define wake_create(e) pipe(e.fds); set_nonblock(e.fds[0]); set_nonblock(e.fds[1])
@@ -451,28 +463,19 @@ typedef int sockfd;
 struct wake { 
 	int fds[2];
 };
-#else
-#pragma message "TODO: complete IPC support"
-// struct pollfd {
-//     int fd;        /* The descriptor. */
-//     short events;  /* The event(s) is/are specified here. */
-//     short revents; /* Events found are returned here. */
-// };
-
-#define PIPE_PATH "$pipe$"
-#define WAKE_PATH PIPE_PATH"wake"
+#endif
+#if LOOPBACK
 #define event_handle struct pollfd
 #define event_event struct wake
-//event_event wake_e;
-#define wake_create(e)  // esp_vfs_dev_event_register(); e.fds[1] = event_open(WAKE_PATH,O_NONBLOCK);
-#define wake_signal(e)// write(e.fds[1], ".", 1)
-#define wake_clear(e) //char c[10]; read(e, &c, 10)
-#define wake_close(e) //close(e.fds[0]); close(e.fds[1])
-struct wake { 
+#define wake_create(e) _wake_create(&e)
+#define wake_signal(e) send(e.fds[1], ".", 1, 0)
+#define wake_clear(e) char c; recv(e, &c, 1, 0)
+#define wake_close(e) closesocket(e.mfds); closesocket(e.fds[0]); closesocket(e.fds[1])
+struct wake {
+	int mfds;
 	int fds[2];
 };
-#endif
-
+void _wake_create(event_event*);
 #endif
 
 #if WINEVENT
@@ -757,25 +760,23 @@ void output_close_alsa(void);
 #endif
 
 // output_pa.c
-#if PORTAUDIO
+#if PORTAUDIO 
 void list_devices(void);
 void set_volume(unsigned left, unsigned right);
 bool test_open(const char *device, unsigned rates[], bool userdef_rates);
 void output_init_pa(log_level level, const char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay, unsigned idle);
 void output_close_pa(void);
 void _pa_open(void);
-
-#endif
-#if DACAUDIO
-// ESP will use stream to stdout
-void output_close_dac(void);
+#endif 
+#if DSPAUDIO
 void list_devices(void);
 void set_volume(unsigned left, unsigned right);
-void output_init_dac(log_level level, const char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay,
-					unsigned idle);
 bool test_open(const char *device, unsigned rates[], bool userdef_rates);
-void dac_open(void);
+void output_init_dsp(log_level level, const char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay,
+					unsigned idle);
+void output_close_dsp(void);
 #endif
+
 // output_stdout.c
 void output_init_stdout(log_level level, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay);
 void output_close_stdout(void);
@@ -808,7 +809,7 @@ void dsd_init(dsd_format format, unsigned delay);
 
 // codecs
 #define MAX_CODECS 9
-
+#ifndef DSPAUDIO
 struct codec *register_flac(void);
 struct codec *register_pcm(void);
 struct codec *register_mad(void);
@@ -817,8 +818,8 @@ struct codec *register_vorbis(void);
 struct codec *register_faad(void);
 struct codec *register_dsd(void);
 struct codec *register_ff(const char *codec);
-#ifdef DACAUDIO
-struct codec *register_dac(const char *codec);
+#else 
+struct codec *register_dsp(const char *codec);
 #endif
 //gpio.c
 #if GPIO

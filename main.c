@@ -23,9 +23,8 @@
  */
 
 #include "squeezelite.h"
-#ifndef SQESP
+#ifndef POSIX
 #include <signal.h>
-#endif
 #define TITLE "Squeezelite " VERSION ", Copyright 2012-2015 Adrian Smith, 2015-2019 Ralph Irving."
 
 #define CODECS_BASE "flac,pcm,mp3,ogg"
@@ -171,6 +170,9 @@ static void usage(const char *argv0) {
 #if SELFPIPE
 		   " SELFPIPE"
 #endif
+#if LOOPBACK
+		   " LOOPBACK"
+#endif
 #if WINEVENT
 		   " WINEVENT"
 #endif
@@ -252,17 +254,11 @@ static void license(void) {
 		   "\n"
 		   );
 }
-#ifndef SQESP
 static void sighandler(int signum) {
 	slimproto_stop();
-	#ifndef SQESP
 	// remove ourselves in case above does not work, second SIGINT will cause non gracefull shutdown
 	signal(signum, SIG_DFL);
-	#else
-	// todo:  should we reboot here?  If so, then we might get stuck in a boot loop.
-	#endif
 }
-#endif
 int main(int argc, char **argv) {
 	char *server = NULL;
 	char *output_device = "default";
@@ -682,7 +678,6 @@ int main(int argc, char **argv) {
 		usage(argv[0]);
 		exit(1);
 	}
-#ifndef SQESP
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 #if defined(SIGQUIT)
@@ -690,7 +685,6 @@ int main(int argc, char **argv) {
 #endif
 #if defined(SIGHUP)
 	signal(SIGHUP, sighandler);
-#endif
 #endif
 	// set the output buffer size if not specified on the command line, take account of resampling
 	if (!output_buf_size) {
@@ -753,7 +747,7 @@ int main(int argc, char **argv) {
 #if PORTAUDIO
 		output_init_pa(log_output, output_device, output_buf_size, output_params, rates, rate_delay, idle);
 #endif
-#ifdef DACAUDIO
+#ifdef DSPAUDIO
 		output_init_dac(log_output, output_device, output_buf_size, output_params, rates, rate_delay, idle);
 #endif
 	}
@@ -801,7 +795,7 @@ int main(int argc, char **argv) {
 #if PORTAUDIO
 		output_close_pa();
 #endif
-#if DACAUDIO
+#if DSPAUDIO
 	output_close_dac();
 #endif 
 	}
@@ -822,12 +816,5 @@ int main(int argc, char **argv) {
 #endif
 
 	exit(0);
-}
-#ifdef SQESP
-void app_main()
-{
-	static char * args = ""; 
-	//todo: load some settings from persistent storage and call main below
-	main(0,&args);
 }
 #endif

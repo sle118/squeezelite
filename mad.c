@@ -20,7 +20,7 @@
  */
 
 #include "squeezelite.h"
-#ifndef DACAUDIO
+#ifndef DSPAUDIO
 #include <mad.h>
 
 #define MAD_DELAY 529

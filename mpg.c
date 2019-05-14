@@ -20,7 +20,7 @@
  */
 
 #include "squeezelite.h"
-#ifndef DACAUDIO
+#ifndef DSPAUDIO
 #include <mpg123.h>
 
 #define READ_SIZE  512

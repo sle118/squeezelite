@@ -20,7 +20,7 @@
  */
 
 #include "squeezelite.h"
-#ifndef DACAUDIO
+#ifndef DSPAUDIO
 #include <neaacdec.h>
 
 #define WRAPBUF_LEN 2048

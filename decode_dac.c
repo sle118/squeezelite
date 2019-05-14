@@ -178,7 +178,7 @@ static void dac_close(void) {
 }
 #define READ_SIZE 1024 // limited resources on the platform, and we should push frames as fast as possible to the DAC
 #define WRITE_SIZE 2048 // no need for a lot of room;  we are pushing bytes 1:1 and the dac should be able to sustain the throughput
-struct codec *register_dac(const char *codec) {
+struct codec *register_dsp(const char *codec) {
 
 	if (!strcmp(codec, "pcm")) {
 		static struct codec ret = { 

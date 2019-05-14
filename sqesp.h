@@ -14,7 +14,7 @@
 
 #include <driver/spi_common.h>
 #include <driver/spi_master.h>
-//#include <sqesp_VS1053.h>
+//#include <POSIX_VS1053.h>
 
 void init_VS1053();
 void LoadPlugin(const uint16_t *d, uint16_t len);
